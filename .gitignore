@@ -761,11 +761,6 @@ Icon?
 Thumbs.db
 [Dd]esktop.ini
 
-# Package managers
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
 # React specific
 build/
 dist/
