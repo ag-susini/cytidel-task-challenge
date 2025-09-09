@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tasker_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: tasker
+      POSTGRES_PASSWORD: tasker
+      POSTGRES_DB: tasker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - tasker_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tasker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API service
+  api:
+    build:
+      context: ../api/src
+      dockerfile: Tasker.Api/Dockerfile
+    container_name: tasker_api
+    ports:
+      - "5080:5080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=postgres;Database=tasker;Username=tasker;Password=tasker
+    networks:
+      - tasker_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Frontend service
+  frontend:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: tasker_frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - tasker_net
+    depends_on:
+      - api
+    restart: unless-stopped
+
+networks:
+  tasker_net:
+    driver: bridge
+    name: tasker_net
+
+volumes:
+  pgdata:
+    name: tasker_pgdata

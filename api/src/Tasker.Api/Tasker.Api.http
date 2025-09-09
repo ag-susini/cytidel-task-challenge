@@ -1,0 +1,180 @@
+@host = http://localhost:5080
+@contentType = application/json
+
+### Variables for testing
+@email = testuser@example.com
+@password = TestPassword123!
+
+### ====================
+### AUTHENTICATION ENDPOINTS
+### ====================
+
+### 1. Register a new user
+# @name register
+POST {{host}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "confirmPassword": "{{password}}"
+}
+
+### 2. Login (save the token from response)
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Extract tokens from login response
+@accessToken = {{login.response.body.accessToken}}
+@refreshToken = {{login.response.body.refreshToken}}
+
+### 3. Refresh access token
+# @name refresh
+POST {{host}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### 4. Logout
+POST {{host}}/api/auth/logout
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### ====================
+### TASK ENDPOINTS (Protected - Requires Authentication)
+### ====================
+
+### 5. Get all tasks (paginated)
+GET {{host}}/api/tasks?page=1&pageSize=10
+Authorization: Bearer {{accessToken}}
+
+### 6. Get tasks with filters
+GET {{host}}/api/tasks?status=Pending&priority=High&search=important&page=1&pageSize=10
+Authorization: Bearer {{accessToken}}
+
+### 7. Get task statistics
+GET {{host}}/api/tasks/stats
+Authorization: Bearer {{accessToken}}
+
+### 8. Get task by ID
+@taskId = 00000000-0000-0000-0000-000000000000
+GET {{host}}/api/tasks/{{taskId}}
+Authorization: Bearer {{accessToken}}
+
+### 9. Create a new task
+# @name createTask
+POST {{host}}/api/tasks
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "title": "Complete API Documentation",
+  "description": "Write comprehensive documentation for all API endpoints",
+  "priority": "High",
+  "status": "Pending",
+  "dueDate": "2024-12-31T23:59:59Z"
+}
+
+### Extract created task ID
+@createdTaskId = {{createTask.response.headers.Location}}
+
+### 10. Update an existing task
+PUT {{host}}/api/tasks/{{createdTaskId}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "title": "Complete API Documentation - Updated",
+  "description": "Write comprehensive documentation for all API endpoints with examples",
+  "priority": "Critical",
+  "status": "InProgress",
+  "dueDate": "2024-12-25T23:59:59Z"
+}
+
+### 11. Delete a task
+DELETE {{host}}/api/tasks/{{createdTaskId}}
+Authorization: Bearer {{accessToken}}
+
+### ====================
+### TEST SCENARIOS
+### ====================
+
+### Test Scenario 1: Create Low Priority Task
+POST {{host}}/api/tasks
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "title": "Low priority task",
+  "description": "This is a low priority task",
+  "priority": "Low",
+  "status": "Pending"
+}
+
+### Test Scenario 2: Create High Priority Task (triggers critical event logging)
+POST {{host}}/api/tasks
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "title": "URGENT: Security Patch Required",
+  "description": "Critical security vulnerability needs immediate attention",
+  "priority": "Critical",
+  "status": "Pending",
+  "dueDate": "2024-12-01T12:00:00Z"
+}
+
+### Test Scenario 3: Invalid Request (missing required field)
+POST {{host}}/api/tasks
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "description": "Task without title",
+  "priority": "Medium",
+  "status": "Pending"
+}
+
+### Test Scenario 4: Unauthorized Request (no token)
+GET {{host}}/api/tasks
+
+### ====================
+### HEALTH & STATUS
+### ====================
+
+### Health Check 
+GET {{host}}/health
+
+### Swagger UI
+# Open in browser: {{host}}/swagger
+
+### ====================
+### USAGE INSTRUCTIONS
+### ====================
+# 1. Start with the Register endpoint to create a new user
+# 2. Use the Login endpoint to get access and refresh tokens
+# 3. The accessToken variable will be automatically set from login response
+# 4. Use this token in Authorization header for all protected endpoints
+# 5. When token expires, use the Refresh endpoint to get a new access token
+# 6. Task IDs from created tasks are automatically captured for update/delete operations
+#
+# NOTE: Some HTTP clients like VS Code REST Client support variable extraction
+#       If your client doesn't support this, manually copy tokens and IDs
+#
+# TESTING FLOW:
+# 1. Register -> Login -> Create Task -> Update Task -> Get Tasks -> Delete Task
+#
+# CRITICAL EVENTS:
+# Tasks with High or Critical priority will trigger audit logging to logs/critical.log
